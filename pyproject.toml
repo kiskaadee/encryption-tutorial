@@ -1,0 +1,38 @@
+[project]
+name = "myencrypter"
+version = "0.1.0"
+description = "Educational CLI tool demonstrating asymmetric and hybrid encryption mechanics"
+readme = "README.md"
+authors = [{ name = "kiskaadee", email = "fcortesbio@gmail.com" }]
+requires-python = ">=3.13"
+dependencies = [
+    "cryptography>=50.0.2",
+    "pytest>=9.2.0",
+]
+
+[project.scripts]
+myencrypter = "myencrypter.cli:main"
+
+[build-system]
+requires = ["uv_build>=0.13.1,<0.14.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = ["pyright>=1.1.414", "pytest>=9.2.0", "ruff>=0.17.3"]
+
+[tool.ruff]
+target-version = "py313"
+
+
+line-length = 88
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "UP", "B", "A", "C4", "SIM", "ARG"]
+
+[tool.pyright]
+pythonVersion = "3.13"
+typeCheckingMode = "strict"
+include = ["src", "tests"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
