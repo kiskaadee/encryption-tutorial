@@ -1,2 +1,2 @@
 def main() -> None:
-    print("Hello from encryption-tutorial!")
+    print("Hello from myencrypter!")

@@ -1,8 +1,8 @@
 from dataclasses import dataclass
 from pathlib import Path
 
-from cryptography.hazmat.primitives import serialization
-from cryptography.hazmat.primitives.asymmetric import rsa
+from cryptography.hazmat.primitives import hashes, serialization
+from cryptography.hazmat.primitives.asymmetric import padding, rsa
 
 
 @dataclass(frozen=True)
@@ -13,6 +13,10 @@ class RSAKeyPair:
 
 
 class KeySizeError(ValueError):
+    pass
+
+
+class DecryptionError(Exception):
     pass
 
 
@@ -107,3 +111,30 @@ def load_rsa_public_key_pem(pub_path: Path) -> rsa.RSAPublicKey:
     if not isinstance(key, rsa.RSAPublicKey):
         raise TypeError(f"Expected RSA public key, got {type(key)}")
     return key
+
+
+def encrypt_rsa(public_key: rsa.RSAPublicKey, plaintext: bytes) -> bytes:
+    """Encrypt plaintext bytes using RSA-OAEP with SHA-256."""
+    return public_key.encrypt(
+        plaintext=plaintext,
+        padding=padding.OAEP(
+            mgf=padding.MGF1(algorithm=hashes.SHA256()),
+            algorithm=hashes.SHA256(),
+            label=None,
+        ),
+    )
+
+
+def decrypt_rsa(private_key: rsa.RSAPrivateKey, ciphertext: bytes) -> bytes:
+    """Decrypt ciphertext bytes using RSA-OAEP with SHA-256."""
+    try:
+        return private_key.decrypt(
+            ciphertext=ciphertext,
+            padding=padding.OAEP(
+                mgf=padding.MGF1(algorithm=hashes.SHA256()),
+                algorithm=hashes.SHA256(),
+                label=None,
+            ),
+        )
+    except ValueError as exc:
+        raise DecryptionError("Failed to decrypt with RSA: invalid padding") from exc
