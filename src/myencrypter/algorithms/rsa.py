@@ -1,8 +1,37 @@
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Literal
 
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import padding, rsa
+
+
+@dataclass(frozen=True)
+class RSAConfig:
+    """Configuration for RSA encryption/decryption."""
+
+    padding_scheme: Literal["oaep", "pkcs1v15"] = "oaep"
+    hash_algorithm: Literal["sha256", "sha512"] = "sha256"
+    label: bytes | None = None
+
+    def build_padding(self) -> padding.AsymmetricPadding:
+        """Translate string attributes to cryptography library padding objects."""
+        if self.padding_scheme == "oaep":
+            hash_map = {
+                "sha256": hashes.SHA256(),
+                "sha512": hashes.SHA512(),
+            }
+            selected_hash = hash_map[self.hash_algorithm]
+            return padding.OAEP(
+                mgf=padding.MGF1(algorithm=selected_hash),
+                algorithm=selected_hash,
+                label=self.label,
+            )
+
+        elif self.padding_scheme == "pkcs1v15":
+            return padding.PKCS1v15()
+
+        raise ValueError(f"Unsupported padding scheme: {self.padding_scheme}")
 
 
 @dataclass(frozen=True)
@@ -27,8 +56,7 @@ def _validate_rsa_key_size(key_size: int) -> int:
 
 
 def generate_rsa_keypair(key_size: int = 2048) -> RSAKeyPair:
-
-    # Guard clause
+    """Generate a new RSA private/public key pair."""
     valid_key_size = _validate_rsa_key_size(key_size)
 
     """
@@ -113,28 +141,26 @@ def load_rsa_public_key_pem(pub_path: Path) -> rsa.RSAPublicKey:
     return key
 
 
-def encrypt_rsa(public_key: rsa.RSAPublicKey, plaintext: bytes) -> bytes:
+def encrypt_rsa(
+    public_key: rsa.RSAPublicKey, plaintext: bytes, config: RSAConfig | None = None
+) -> bytes:
     """Encrypt plaintext bytes using RSA-OAEP with SHA-256."""
-    return public_key.encrypt(
-        plaintext=plaintext,
-        padding=padding.OAEP(
-            mgf=padding.MGF1(algorithm=hashes.SHA256()),
-            algorithm=hashes.SHA256(),
-            label=None,
-        ),
-    )
+
+    cfg = config if config is not None else RSAConfig()
+    pad = cfg.build_padding()
+
+    return public_key.encrypt(plaintext=plaintext, padding=pad)
 
 
-def decrypt_rsa(private_key: rsa.RSAPrivateKey, ciphertext: bytes) -> bytes:
+def decrypt_rsa(
+    private_key: rsa.RSAPrivateKey, ciphertext: bytes, config: RSAConfig | None = None
+) -> bytes:
     """Decrypt ciphertext bytes using RSA-OAEP with SHA-256."""
+
+    cfg = config if config is not None else RSAConfig()
+
     try:
-        return private_key.decrypt(
-            ciphertext=ciphertext,
-            padding=padding.OAEP(
-                mgf=padding.MGF1(algorithm=hashes.SHA256()),
-                algorithm=hashes.SHA256(),
-                label=None,
-            ),
-        )
+        pad = cfg.build_padding()
+        return private_key.decrypt(ciphertext=ciphertext, padding=pad)
     except ValueError as exc:
         raise DecryptionError("Failed to decrypt with RSA: invalid padding") from exc
